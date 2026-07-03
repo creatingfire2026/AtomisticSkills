@@ -30,7 +30,7 @@
   fermi_energy  = -5.655843                ! eV; from step 1 shifted for doping
 
   mp_mesh_k     = .true.
-  etf_mem       = 3                        ! checkpoint mode for large fine meshes
+  etf_mem       = 1                        ! 1 (or 0) for standard SERTA; 3 (lfast_kmesh) skips SERTA output
 
   nbndsub       = 9
   bands_skipped = 'exclude_bands = 1-6,16-30'

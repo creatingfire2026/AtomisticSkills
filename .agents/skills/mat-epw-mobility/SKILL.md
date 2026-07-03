@@ -187,7 +187,9 @@ ZrS2, `num_wann` = 9, $\Omega_I$ = 18.5 A^2, $\Omega_{total}/\Omega_I$ ~ 1.05.
 ### 8. (Optional) Mode-resolved interpolated |g|
 Print EPW-interpolated $|g(k, q, \nu)|$ on an explicit (k, q) list and compare to
 the step-5 DFPT reference. Use explicit `filkf` + `filqf` (not a uniform fine grid
-with an arbitrary q, which aborts in `kpmq_map`). Deck:
+with an arbitrary q, which aborts in `kpmq_map`). Note that the coordinate list files
+(`kpoints.dat` and `qpoints.dat`) require a header line specifying coordinate type and count
+(e.g., `1 crystal` followed by coordinate lines), otherwise the Fortran parser fails. Deck:
 [`resources/inputs/epw_prtgkk.in`](resources/inputs/epw_prtgkk.in).
 
 ```bash
@@ -202,8 +204,17 @@ python .agents/skills/mat-epw-mobility/scripts/parse_epw_prtgkk.py epw_prtgkk.ou
 
 ### 9. SERTA carrier mobility
 Compute $\mu(T)$ in the semiconductor SERTA branch on production fine meshes.
-`lpolar = .true.` and `system_2d` must match step 7 exactly. Deck:
-[`resources/inputs/epw_mob.in`](resources/inputs/epw_mob.in).
+`lpolar = .true.` and `system_2d` must match step 7 exactly.
+
+> [!WARNING]
+> Setting `etf_mem = 3` turns on `lfast_kmesh = .true.` to save memory, which
+> **silently bypasses** the standard SERTA drift mobility print statements.
+> For printing the drift mobility table and producing `zrs2_elcond_e`, use `etf_mem = 1`.
+> If you encounter Out-Of-Memory (OOM) errors on large grids, run on a single core
+> (to avoid MPI pool k-point splitting problems) using `etf_mem = 0` and
+> `epmatkqread = .true.` to read pre-computed binary `.epb` files.
+
+Deck: [`resources/inputs/epw_mob.in`](resources/inputs/epw_mob.in).
 
 ```bash
 # Requires: EPW 5.8.1 (external MPI build)
