@@ -13,6 +13,9 @@ The uncertainty estimate is:
 - **Energy uncertainty**: standard deviation of predicted energies across committee members (meV/atom)
 - **Force uncertainty**: RMS of per-atom force standard deviations across committee members (meV/Å)
 
+> [!WARNING]
+> **Energy std is only a valid disagreement signal when every committee member shares the same energy reference** — the same training dataset, level of theory, and atomic reference energies (`E0`). If the committee instead pools several *independently pretrained foundation models* (e.g. different MACE-MP / MACE-OMAT / MACE-MATPES releases) rather than same-data/different-seed checkpoints, their absolute energies are not on a common scale: an energy-std ranking will mostly reflect per-model reference-energy offsets, not genuine epistemic disagreement. For this heterogeneous committee flavor, rank structures by **force disagreement** instead — forces are invariant to each model's arbitrary atomic reference energy, so they remain a reliable cross-model signal. See the heterogeneous-committee note under Constraints.
+
 ## Instructions
 
 ### 1. Obtain Committee Models
@@ -126,7 +129,8 @@ mcp_base_register_model(
 
 - **Minimum committee size**: Use at least 3 models. Two models can give misleading std estimates; 5+ models provide more robust uncertainty quantification.
 - **Identical architecture**: All committee members must share the same base model architecture and chemical elements (same `--model` flag during fine-tuning). Different architectures cannot be meaningfully ensembled.
-- **Same data, different seeds**: Committee members should be trained on the same dataset with different random seeds. Using models trained on different datasets introduces epistemic uncertainty from data mismatch, not model uncertainty.
+- **Same data, different seeds** (fine-tuned committees): When building a committee via Option A above, members should be trained on the same dataset with different random seeds. Mixing training datasets within this committee flavor introduces epistemic uncertainty from data mismatch, not model uncertainty, and confounds the estimate.
+- **Heterogeneous / multi-foundation-model committees**: A committee does not have to be same-data/different-seed — a fixed pool of independently pretrained foundation models (e.g. MACE-MP-0, MACE-MP-0b, MACE-MP-0b2, MACE-OMAT-0) is also a valid ensemble for epistemic UQ, and can surface genuine out-of-distribution structures (e.g. an element in an unusual coordination environment) that a same-data seed ensemble would miss. Because these models differ in training data and reference level of theory, however, their **energy** predictions are not on a common scale — always rank this committee flavor by **force disagreement**, never by energy std (see the warning under Goal).
 - **Environment**: This script requires the `mace-agent` conda environment.
 
 ## References
