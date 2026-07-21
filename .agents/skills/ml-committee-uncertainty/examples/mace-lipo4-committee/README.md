@@ -186,8 +186,8 @@ All four metrics fall within the ranges predicted by Schran et al. (2020), valid
 
 | File | Description |
 |:-----|:------------|
-| `uncertainty_summary.json` | Full per-structure energy/force std; flagged structure list |
-| `uncertainty_distribution.png` | Histogram of energy and force std across both config sets (not committed — large binary) |
+| `uncertainty_summary.json` | Full per-structure energy/force uncertainty; flagged structure list |
+| `uncertainty_distribution.png` | Histogram of energy and force uncertainty across both config sets (not committed — large binary) |
 
 ---
 

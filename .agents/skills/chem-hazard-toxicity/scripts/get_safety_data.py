@@ -108,11 +108,11 @@ def main():
     if safety_sec:
         ghs = find_section(safety_sec, "GHS Classification")
         if ghs:
-            result_dict["ghs_classification"] = extract_information(ghs, max_items=20)
+            result_dict["ghs_classification"] = extract_information(ghs, max_items=0)
 
         classes = find_section(safety_sec, "Hazard Classes and Categories")
         if classes:
-            result_dict["hazard_classes"] = extract_information(classes, max_items=20)
+            result_dict["hazard_classes"] = extract_information(classes, max_items=0)
 
     # 2. Look for Toxicity
     tox_sec = find_section(record, "Toxicity")
@@ -121,7 +121,7 @@ def main():
         tox_sec = find_section(record, "Toxicological Information")
 
     if tox_sec:
-        result_dict["toxicity"] = extract_information(tox_sec, max_items=50)
+        result_dict["toxicity"] = extract_information(tox_sec, max_items=0)
 
     print("\n--- Summary of Findings ---")
     print(f"GHS Statements Found: {len(result_dict['ghs_classification'])}")

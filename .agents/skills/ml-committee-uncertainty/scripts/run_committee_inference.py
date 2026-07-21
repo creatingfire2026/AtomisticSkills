@@ -34,10 +34,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ase import Atoms
-from ase.io import read, write
+from ase import Atoms  # noqa: E402
+from ase.io import read, write  # noqa: E402
 
-from src.utils.research_utils import get_current_research_dir
+from src.utils.research_utils import get_current_research_dir  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("CommitteeUQ")
@@ -107,7 +107,7 @@ def build_committee_calculator(model_paths: List[str], device: str, head: str = 
 
 
 def compute_uncertainty(atoms: Atoms, calc) -> dict:
-    """Run committee inference on a single structure and return uncertainty metrics."""
+    """Run committee inference and return component-wise committee uncertainty."""
     atoms.calc = calc
     energy = atoms.get_potential_energy()
     forces = atoms.get_forces()
@@ -119,17 +119,20 @@ def compute_uncertainty(atoms: Atoms, calc) -> dict:
     energy_var = calc.results.get("energy_var", 0.0)
     forces_var = calc.results.get("forces_var", np.zeros_like(forces))
 
-    # Convert variance → std, work in meV units
+    # Convert variance → std, work in meV units. MACE-style force RMSE is a
+    # component-wise reduction: one RMS over all atom--Cartesian components.
     energy_std_mev = float(np.sqrt(energy_var) * 1000.0 / n_atoms)  # meV/atom
     forces_std_mev = np.sqrt(forces_var) * 1000.0  # meV/Å, shape (N, 3)
     max_force_std_mev = float(forces_std_mev.max())
     mean_force_std_mev = float(forces_std_mev.mean())
+    force_rmse_mev = float(np.sqrt(np.mean(forces_std_mev**2)))
 
     return {
         "energy_per_atom_eV": round(energy_per_atom, 6),
         "energy_std_meV_per_atom": round(energy_std_mev, 4),
         "max_force_std_meV_A": round(max_force_std_mev, 4),
         "mean_force_std_meV_A": round(mean_force_std_mev, 4),
+        "force_rmse_meV_A": round(force_rmse_mev, 4),
     }
 
 
@@ -143,7 +146,7 @@ def plot_uncertainty_distribution(records: list, output_path: str) -> None:
     plt.rcParams.update({"font.size": 14})
 
     energy_stds = [r["energy_std_meV_per_atom"] for r in records]
-    force_stds = [r["max_force_std_meV_A"] for r in records]
+    force_stds = [r["force_rmse_meV_A"] for r in records]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -155,7 +158,7 @@ def plot_uncertainty_distribution(records: list, output_path: str) -> None:
     ax1.legend(frameon=False)
 
     ax2.hist(force_stds, bins=30, color="#DD8452", edgecolor="white", linewidth=0.5)
-    ax2.set_xlabel("Max Force Uncertainty (meV/Å)", fontweight="bold")
+    ax2.set_xlabel("Force Uncertainty RMSE (meV/Å)", fontweight="bold")
     ax2.set_ylabel("Count", fontweight="bold")
     ax2.set_title("Force Uncertainty Distribution")
     ax2.grid(True, linestyle="--", alpha=0.6)
@@ -197,7 +200,7 @@ def main():
         "--force-threshold",
         type=float,
         default=200.0,
-        help="Flag structures with max force std > this value in meV/Å (default: 200.0).",
+        help="Flag structures with force RMSE > this value in meV/Å (default: 200.0).",
     )
     parser.add_argument(
         "--device",
@@ -247,7 +250,7 @@ def main():
         records.append(metrics)
 
         energy_flagged = metrics["energy_std_meV_per_atom"] > args.energy_threshold
-        force_flagged = metrics["max_force_std_meV_A"] > args.force_threshold
+        force_flagged = metrics["force_rmse_meV_A"] > args.force_threshold
         is_flagged = energy_flagged or force_flagged
         metrics["flagged_for_dft"] = is_flagged
         metrics["flag_reason"] = []
@@ -258,7 +261,7 @@ def main():
             )
         if force_flagged:
             metrics["flag_reason"].append(
-                f"force_std={metrics['max_force_std_meV_A']:.2f} > {args.force_threshold} meV/Å"
+                f"force_rmse={metrics['force_rmse_meV_A']:.2f} > {args.force_threshold} meV/Å"
             )
 
         if is_flagged:
@@ -269,7 +272,7 @@ def main():
         status = "FLAGGED" if is_flagged else "ok"
         logger.info(
             f"  E_std={metrics['energy_std_meV_per_atom']:.2f} meV/atom, "
-            f"F_std_max={metrics['max_force_std_meV_A']:.2f} meV/Å  [{status}]"
+            f"F_RMSE={metrics['force_rmse_meV_A']:.2f} meV/Å  [{status}]"
         )
 
     # Save summary JSON
@@ -296,7 +299,7 @@ def main():
 
     # Print final summary
     energy_stds = [r["energy_std_meV_per_atom"] for r in records]
-    force_stds = [r["max_force_std_meV_A"] for r in records]
+    force_stds = [r["force_rmse_meV_A"] for r in records]
     print("\n" + "=" * 60)
     print("COMMITTEE UNCERTAINTY SUMMARY")
     print("=" * 60)
@@ -304,8 +307,8 @@ def main():
     print(f"  Committee members   : {len(args.models)}")
     print(f"  Energy std (mean)   : {np.mean(energy_stds):.2f} meV/atom")
     print(f"  Energy std (max)    : {np.max(energy_stds):.2f} meV/atom")
-    print(f"  Force  std (mean)   : {np.mean(force_stds):.2f} meV/Å")
-    print(f"  Force  std (max)    : {np.max(force_stds):.2f} meV/Å")
+    print(f"  Force RMSE (mean)   : {np.mean(force_stds):.2f} meV/Å")
+    print(f"  Force RMSE (max)    : {np.max(force_stds):.2f} meV/Å")
     print(
         f"  Flagged for DFT     : {n_flagged}/{len(structures)} ({100*n_flagged/len(structures):.1f}%)"
     )

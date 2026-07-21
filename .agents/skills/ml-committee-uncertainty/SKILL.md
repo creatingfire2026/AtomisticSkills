@@ -11,7 +11,11 @@ To estimate the epistemic uncertainty of a MACE MLIP by running inference with a
 
 The uncertainty estimate is:
 - **Energy uncertainty**: standard deviation of predicted energies across committee members (meV/atom)
-- **Force uncertainty**: RMS of per-atom force standard deviations across committee members (meV/Å)
+- **Force uncertainty**: component-wise force RMSE of the across-committee
+  standard deviations (meV/Å): take the sample standard deviation for every
+  atom and Cartesian component, then take one root-mean-square over all `3N`
+  components. This is the conventional MLIP force-RMSE reduction used by MACE
+  reporting.
 
 > [!WARNING]
 > **Energy std is only a valid disagreement signal when every committee member shares the same energy reference** — the same training dataset, level of theory, and atomic reference energies (`E0`). If the committee instead pools several *independently pretrained foundation models* (e.g. different MACE-MP / MACE-OMAT / MACE-MATPES releases) rather than same-data/different-seed checkpoints, their absolute energies are not on a common scale: an energy-std ranking will mostly reflect per-model reference-energy offsets, not genuine epistemic disagreement. For this heterogeneous committee flavor, rank structures by **force disagreement** instead — forces are invariant to each model's arbitrary atomic reference energy, so they remain a reliable cross-model signal. See the heterogeneous-committee note under Constraints.
@@ -80,7 +84,7 @@ python .agents/skills/ml-committee-uncertainty/scripts/run_committee_inference.p
 | `--structures` | Path to structure file, directory, or `.xyz` trajectory | — |
 | `--models` | Space-separated list of MACE checkpoint paths | ≥ 3 models |
 | `--energy-threshold` | Flag if energy std > this value (meV/atom) | 5–20 meV/atom |
-| `--force-threshold` | Flag if max force std > this value (meV/Å) | 100–300 meV/Å |
+| `--force-threshold` | Flag if component-wise force RMSE > this value (meV/Å) | 100–300 meV/Å |
 | `--output-dir` | Directory for results and plots | — |
 | `--device` | `cuda` or `cpu` | `cuda` |
 | `--head` | Head name for multi-head models (e.g. `omat_pbe` for MACE-MH-1) | `None` |
@@ -95,7 +99,7 @@ The script produces:
 **Thresholds for DFT flagging:** There is no universal threshold. Empirically:
 - Energy std > **10 meV/atom** is a conservative threshold suitable for phonon/stability work
 - Energy std > **5 meV/atom** for high-accuracy MD (e.g., melting point, ionic conductivity)
-- Force std > **200 meV/Å** generally indicates the configuration is poorly represented in training data
+- Force RMSE > **200 meV/Å** generally indicates the configuration is poorly represented in training data
 
 > [!TIP]
 > Run this skill on your MD trajectory after a few nanoseconds to check whether the MLIP remains in-distribution throughout the simulation. High uncertainty at late simulation times suggests the trajectory has drifted into unexplored configuration space.
