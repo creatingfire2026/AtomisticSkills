@@ -36,7 +36,22 @@ When a user asks a research question, check workflows first for end-to-end proto
 
 ## Skill Discovery
 
-Skills are at `.agents/skills/`. Scan frontmatter descriptions to find relevant ones:
+Skills are at `.agents/skills/`. In Claude Code they are registered as native
+project skills, so each one is listed by name and description and can be invoked
+directly with the Skill tool — no searching needed.
+
+**If the skills are not listed, they have not been configured yet.** Run:
+```bash
+python configure_mcp.py --agent claude
+```
+This symlinks every `.agents/skills/<name>` into `.claude/skills/<name>`, which
+Claude Code discovers automatically. `.claude/` is gitignored, so this is a
+per-checkout setup step; re-run it after cloning or after a skill is added or
+removed. `.agents/skills/` stays the single source of truth — the symlinks are
+never copies.
+
+Fallback for any agent without native skill registration — scan the frontmatter
+descriptions directly:
 ```bash
 grep -r "^description:" .agents/skills/*/SKILL.md
 ```
