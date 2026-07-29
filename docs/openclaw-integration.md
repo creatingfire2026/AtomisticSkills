@@ -34,7 +34,7 @@ cd ~/Documents/AtomisticSkills
 openclaw tui
 ```
 
-> **Why this matters:** If you launch from the wrong directory (e.g., `~/.openclaw/workspace`), the agent won't have access to the `.agent/` folder, skills, or research outputs without extra manual setup.
+> **Why this matters:** If you launch from the wrong directory (e.g., `~/.openclaw/workspace`), the agent won't have access to the `.agents/` folder, skills, or research outputs without extra manual setup.
 
 ---
 
@@ -43,13 +43,13 @@ openclaw tui
 Once inside the session, tell the agent to load the AtomisticSkills knowledge base into its context:
 
 ```
-absorb all of /home/<you>/Documents/AtomisticSkills into context. most crucially is the files in /home/<you>/Documents/AtomisticSkills/.agent — target the skills/, workflows/, and rules/ folders within .agent/
+absorb all of /home/<you>/Documents/AtomisticSkills into context. most crucially is the files in /home/<you>/Documents/AtomisticSkills/.agents — target the skills/, workflows/, and rules/ folders within .agents/
 ```
 
 The agent will read and internalize:
-- `.agent/skills/` — all ~60 domain skills (melting point, docking, sorption, fine-tuning, etc.)
-- `.agent/workflows/` — high-level research playbooks
-- `.agent/rules/` — coding, research, and plotting standards
+- `.agents/skills/` — all ~60 domain skills (melting point, docking, sorption, fine-tuning, etc.)
+- `.agents/workflows/` — high-level research playbooks
+- `.agents/rules/` — coding, research, and plotting standards
 
 After this, the agent can discover and execute skills by reading their `SKILL.md` files and running the associated scripts directly.
 
@@ -130,7 +130,7 @@ Calculate the melting point of Ag using the solid-liquid coexistence method.
 ```
 
 The agent will:
-1. Discover the relevant skill by reading `.agent/skills/*/SKILL.md`
+1. Discover the relevant skill by reading `.agents/skills/*/SKILL.md`
 2. Run scripts via the appropriate conda env (e.g., `micromamba run -n mace-agent python ...`)
 3. Call MCP tools via `mcporter call <server> <tool> <args>`
 4. Save outputs to `research/<date>_<description>/`
