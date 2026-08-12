@@ -26,7 +26,7 @@ project_root = Path(__file__).parents[4].absolute()
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from ase.io import read  # noqa: E402
+from ase.io import read
 
 # Set MatGL backend
 os.environ["MATGL_BACKEND"] = "DGL"

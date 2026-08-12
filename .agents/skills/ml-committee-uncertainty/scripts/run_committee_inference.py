@@ -34,10 +34,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ase import Atoms  # noqa: E402
-from ase.io import read, write  # noqa: E402
+from ase import Atoms
+from ase.io import read, write
 
-from src.utils.research_utils import get_current_research_dir  # noqa: E402
+from src.utils.research_utils import get_current_research_dir
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("CommitteeUQ")

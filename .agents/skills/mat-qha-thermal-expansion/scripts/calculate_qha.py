@@ -9,16 +9,16 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.utils.serialization_utils import recursive_tolist  # noqa: E402  (deliberate: imports follow the sys.path insert above)
-from src.utils.research_utils import get_current_research_dir  # noqa: E402  (deliberate: imports follow the sys.path insert above)
-from ase.io import read  # noqa: E402  (deliberate: imports follow the sys.path insert above)
+from src.utils.serialization_utils import recursive_tolist
+from src.utils.research_utils import get_current_research_dir
+from ase.io import read
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("QHA-Skill")
 
 
-from src.utils.mlips.loader import load_wrapper  # noqa: E402  (deliberate: imports follow the sys.path insert above)
+from src.utils.mlips.loader import load_wrapper
 
 
 def run_qha(args, wrapper, atoms):

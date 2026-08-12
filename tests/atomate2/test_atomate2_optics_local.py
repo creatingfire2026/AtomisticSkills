@@ -8,7 +8,7 @@ from pymatgen.core import Lattice, Structure
 project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
-from src.utils.dft.atomate2_utils import Atomate2Handler  # noqa: E402
+from src.utils.dft.atomate2_utils import Atomate2Handler
 
 
 def test_atomate2_local_si_optics():

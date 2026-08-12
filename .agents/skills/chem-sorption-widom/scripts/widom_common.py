@@ -20,7 +20,7 @@ _WIDOM_SRC = _SCRIPT_DIR / "widom_src"
 if _WIDOM_SRC.is_dir() and str(_WIDOM_SRC) not in sys.path:
     sys.path.insert(0, str(_WIDOM_SRC))
 
-from widom import WidomInsertionResults, run_widom_insertion  # noqa: E402
+from widom import WidomInsertionResults, run_widom_insertion
 from src.utils.serialization_utils import finite_or_none
 
 LOGGER = logging.getLogger(__name__)

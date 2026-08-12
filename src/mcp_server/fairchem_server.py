@@ -6,16 +6,16 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.utils.mcp_utils import setup_mcp_stdout, run_fastmcp_server  # noqa: E402
+from src.utils.mcp_utils import setup_mcp_stdout, run_fastmcp_server
 
 # Setup stdout redirection for MCP
 mcp_pipe_binary = setup_mcp_stdout()
 
-import logging  # noqa: E402
-from mcp.server.fastmcp import FastMCP  # noqa: E402
-from typing import Dict, Any, Optional, List, Union  # noqa: E402
-from src.utils.serialization_utils import recursive_tolist  # noqa: E402
-from src.utils.research_utils import get_current_research_dir  # noqa: E402
+import logging
+from mcp.server.fastmcp import FastMCP
+from typing import Dict, Any, Optional, List, Union
+from src.utils.serialization_utils import recursive_tolist
+from src.utils.research_utils import get_current_research_dir
 
 # Configure logging to go to the real stderr
 logging.basicConfig(level=logging.INFO)
