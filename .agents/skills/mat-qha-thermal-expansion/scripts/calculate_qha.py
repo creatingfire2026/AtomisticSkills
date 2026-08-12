@@ -9,16 +9,16 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from src.utils.serialization_utils import recursive_tolist
-from src.utils.research_utils import get_current_research_dir
-from ase.io import read
+from src.utils.serialization_utils import recursive_tolist  # noqa: E402  (deliberate: imports follow the sys.path insert above)
+from src.utils.research_utils import get_current_research_dir  # noqa: E402  (deliberate: imports follow the sys.path insert above)
+from ase.io import read  # noqa: E402  (deliberate: imports follow the sys.path insert above)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("QHA-Skill")
 
 
-from src.utils.mlips.loader import load_wrapper
+from src.utils.mlips.loader import load_wrapper  # noqa: E402  (deliberate: imports follow the sys.path insert above)
 
 
 def run_qha(args, wrapper, atoms):
@@ -36,6 +36,11 @@ def run_qha(args, wrapper, atoms):
         t_max=args.t_max,
         t_min=args.t_min,
         eos=args.eos,
+        # matcalc defaults fmax to 1e-5 eV/A, which MLIP forces routinely cannot
+        # reach: QHACalc then raises out of its pre-relaxation instead of
+        # returning. 1e-3 is tight enough for QHA and is reachable.
+        fmax=args.fmax,
+        max_steps=args.max_steps,
         write_gibbs_temperature=os.path.join(args.output_dir, "gibbs_temperature.dat"),
         write_thermal_expansion=os.path.join(args.output_dir, "thermal_expansion.dat"),
     )
@@ -82,6 +87,17 @@ if __name__ == "__main__":
         "--t_step", type=float, default=10.0, help="Temperature step (K)"
     )
     parser.add_argument("--eos", default="vinet", help="Equation of state for QHA")
+    parser.add_argument(
+        "--fmax",
+        type=float,
+        default=1e-3,
+        help="Force tolerance (eV/A) for the pre-relaxation and the per-volume "
+        "relaxations. matcalc's own default of 1e-5 is below what MLIP forces "
+        "usually reach and makes QHACalc raise rather than return.",
+    )
+    parser.add_argument(
+        "--max_steps", type=int, default=1000, help="Max relaxation steps per structure"
+    )
     parser.add_argument("--output_dir", help="Output directory")
     parser.add_argument("--device", default="auto", help="Device (cpu, cuda, auto)")
 
