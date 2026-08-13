@@ -21,6 +21,19 @@ logger = logging.getLogger("QHA-Skill")
 from src.utils.mlips.loader import load_wrapper
 
 
+def scale_factors_from_volume_window(window, n_volumes):
+    """Linear scale factors spanning +/-`window` in VOLUME about the relaxed cell.
+
+    QHACalc scales the lattice, so a volume window maps to the cube root.
+    """
+    import numpy as np
+
+    return tuple(
+        float(v) ** (1.0 / 3.0)
+        for v in np.linspace(1.0 - window, 1.0 + window, n_volumes)
+    )
+
+
 def run_qha(args, wrapper, atoms):
     from matcalc import QHACalc
 
@@ -41,6 +54,9 @@ def run_qha(args, wrapper, atoms):
         # returning. 1e-3 is tight enough for QHA and is reachable.
         fmax=args.fmax,
         max_steps=args.max_steps,
+        scale_factors=scale_factors_from_volume_window(
+            args.volume_window, args.n_volumes
+        ),
         write_gibbs_temperature=os.path.join(args.output_dir, "gibbs_temperature.dat"),
         write_thermal_expansion=os.path.join(args.output_dir, "thermal_expansion.dat"),
     )
@@ -97,6 +113,20 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--max_steps", type=int, default=1000, help="Max relaxation steps per structure"
+    )
+    parser.add_argument(
+        "--volume_window",
+        type=float,
+        default=0.10,
+        help="Half-width of the sampled volume range, as a fraction of the relaxed "
+        "volume (default 0.10 = +/-10%%). The quasi-harmonic approximation "
+        "expands about equilibrium, so the scan has to stay near it: matcalc's "
+        "own default spans -14%% to +16%% in volume, which on BCC Li shifts the "
+        "thermal expansion coefficient by 15%%. Widen only if the free-energy "
+        "minimum at your highest temperature is not interior to the scan.",
+    )
+    parser.add_argument(
+        "--n_volumes", type=int, default=11, help="Number of sampled volumes"
     )
     parser.add_argument("--output_dir", help="Output directory")
     parser.add_argument("--device", default="auto", help="Device (cpu, cuda, auto)")
