@@ -21,6 +21,15 @@ logger = logging.getLogger("QHA-Skill")
 from src.utils.mlips.loader import load_wrapper
 
 
+def QHACalc_default_scale_factors():
+    """matcalc's own default: +/-5% in linear strain, i.e. -14%/+16% in volume."""
+    import inspect
+
+    from matcalc import QHACalc
+
+    return inspect.signature(QHACalc.__init__).parameters["scale_factors"].default
+
+
 def scale_factors_from_volume_window(window, n_volumes):
     """Linear scale factors spanning +/-`window` in VOLUME about the relaxed cell.
 
@@ -117,16 +126,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--volume_window",
         type=float,
-        default=0.10,
-        help="Half-width of the sampled volume range, as a fraction of the relaxed "
-        "volume (default 0.10 = +/-10%%). The quasi-harmonic approximation "
-        "expands about equilibrium, so the scan has to stay near it: matcalc's "
-        "own default spans -14%% to +16%% in volume, which on BCC Li shifts the "
-        "thermal expansion coefficient by 15%%. Widen only if the free-energy "
-        "minimum at your highest temperature is not interior to the scan.",
+        default=None,
+        help="Half-width of the sampled volume range as a fraction of the relaxed "
+        "volume, e.g. 0.10 for +/-10%% in VOLUME. Default: matcalc's own "
+        "scale_factors, which are +/-5%% in LINEAR strain and so -14%%/+16%% in "
+        "volume -- the same window atomate2 and phonopy's Si-QHA example use. "
+        "Set this only when you need to match someone else's window.",
     )
     parser.add_argument(
-        "--n_volumes", type=int, default=11, help="Number of sampled volumes"
+        "--n_volumes",
+        type=int,
+        default=11,
+        help="Number of sampled volumes when --volume_window is given (phonopy needs >= 5)",
     )
     parser.add_argument("--output_dir", help="Output directory")
     parser.add_argument("--device", default="auto", help="Device (cpu, cuda, auto)")

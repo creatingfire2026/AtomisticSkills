@@ -25,25 +25,39 @@ Refer to the [foundation-potentials skill](../ml-foundation-potentials/SKILL.md)
 
 ## 3. Choosing the Volume Window
 
-QHA fits the free energy against volume, so the sampled volume range is part of the
-physics, not a cosmetic setting.
+QHA fits the free energy against volume -- `phonopy-qha` fits `E(V) + F_vib(V,T)` to a
+Vinet, Birch-Murnaghan or Murnaghan equation of state at each temperature and minimises
+it -- so the sampled volume range is a real input, and you should report it alongside
+the result.
+
+**The convention is +/-5% in LINEAR strain, which is -14% to +16% in volume:**
+
+| source | window | volume width |
+|---|---|---|
+| `matcalc` `QHACalc` default `scale_factors` | 0.95-1.05 linear | 1.35x |
+| `atomate2` `QhaMaker` default `linear_strain` | (-0.05, 0.05) | 1.35x |
+| `phonopy` `Si-QHA` example `e-v.dat` | 140.03-189.07 A^3 | 1.35x |
+
+Note the cube: a window quoted as "+/-5%" in lattice parameter is three times that in
+volume. Read which convention a tool means before comparing windows across codes --
+`QHACalc` scales the lattice (`apply_strain`), not the volume.
 
 > [!IMPORTANT]
-> **Sample close to equilibrium.** The quasi-harmonic approximation is an expansion
-> about the equilibrium volume, and the fitted `F(V)` is only meaningful near its
-> minimum. A scan reaching far-compressed or far-expanded volumes biases the fit and
-> the phonons together. `matcalc`'s own `QHACalc` default spans **-14% to +16% in
-> volume**; on BCC lithium that shifts the thermal expansion coefficient from
-> 4.6e-5 to 5.1e-5 /K, about 15%, and widening further to a factor of two in volume
-> roughly doubles it. `calculate_qha.py` therefore defaults to `--volume_window 0.10`
-> (+/-10% in volume) rather than passing matcalc's default through.
+> **The window must bracket the free-energy minimum at your highest temperature.** The
+> lattice expands on heating, so a window adequate at 0 K can be too narrow at high T,
+> and a minimiser that runs into the edge of the scan returns the edge rather than the
+> minimum. Check that the equilibrium volume at your top temperature is interior to the
+> sampled volumes, and widen `--volume_window` if it is not. `phonopy` requires at least
+> 5 volume points; 11 is the usual choice.
 
-> [!IMPORTANT]
-> **But the window must still bracket the minimum at your highest temperature.** The
-> lattice expands on heating, so a window adequate at 0 K can be too narrow at high
-> T, and a minimiser that runs into the edge of the scan returns the edge rather than
-> the minimum. Check that the equilibrium volume at your top temperature is interior
-> to the sampled volumes, and widen with `--volume_window` if it is not.
+> [!NOTE]
+> **Widening the window is not automatically safer.** On BCC lithium with
+> M3GNet-PES-MatPES-PBE, going from +/-10% to the conventional +/-14/+16% in volume
+> moves the 0 K equilibrium volume by 0.09 A^3 (0.5%) and the thermal expansion
+> coefficient by 9%, with every sampled volume still dynamically stable -- so this is
+> fit sensitivity, not a soft-mode artefact. Neither window is wrong; quote the one you
+> used. If you need a number comparable to someone else's, match their window rather
+> than assuming a default agrees.
 
 ## 4. Calculation Workflow
 
