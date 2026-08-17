@@ -197,7 +197,7 @@ See [docs/developer_guide.md](docs/developer_guide.md) for architecture details,
 If you use AtomisticSkills in your research, please cite our paper:
 
 ```bibtex
-@article{deng2025atomisticskills,
+@article{deng2026atomisticskills,
   title   = {Harnessing AtomisticSkills for Agentic Atomistic Research},
   author  = {Bowen Deng and Bohan Li and Matthew Cox and Hoje Chun and Juno Nam and
              Artur Lyssenko and Sathya Edamadaka and Jurgis Ruza and Xiaochen Du and
@@ -206,7 +206,7 @@ If you use AtomisticSkills in your research, please cite our paper:
              Anirban Chandra and Abhirup Patra and Detlef Hohl and Connor W. Coley and
              Ju Li and Rafael G{\'{o}}mez-Bombarelli},
   journal = {arXiv preprint arXiv:2605.24002},
-  year    = {2025},
+  year    = {2026},
   url     = {https://arxiv.org/abs/2605.24002},
   doi     = {10.48550/arXiv.2605.24002}
 }

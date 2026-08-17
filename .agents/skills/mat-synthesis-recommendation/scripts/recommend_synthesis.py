@@ -95,7 +95,8 @@ def query_synthesis_recipes(
             if synthesis_type or min_temp or max_temp:
                 fetch_limit = max(100, limit)
 
-            recipes = mpr.synthesis.search(
+            synthesis_api = getattr(mpr.materials, "synthesis", None) or mpr.synthesis
+            recipes = synthesis_api.search(
                 target_formula=normalized_formula, num_chunks=fetch_limit
             )
 
@@ -331,9 +332,12 @@ def main():
         print(f"\nResults saved to {output_path}")
 
     # Save input configs for reproducibility
-    from src.utils.config_utils import save_skill_inputs
+    try:
+        from src.utils.config_utils import save_skill_inputs
 
-    save_skill_inputs(args, args.output)
+        save_skill_inputs(args, args.output)
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

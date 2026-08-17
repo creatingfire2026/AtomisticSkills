@@ -1,14 +1,26 @@
 import argparse
 import json
-import urllib.request
+import re
+import time
 import urllib.error
 import urllib.parse
+import urllib.request
 from pathlib import Path
-import time
+
+PERCENT_CODE = re.compile(
+    r"\b(H\d{3}[A-Za-z]?)\s*\(\s*([<>]=?)?\s*(\d+(?:\.\d+)?)\s*%\s*\)"
+)
+MASS_DOSE = re.compile(
+    r"(?<![\w.])([0-9][0-9,.]*)\s*(ug|µg|μg|mg|g)\s*/\s*kg\b",
+    re.IGNORECASE,
+)
+ORAL_CODES = {"H300", "H301", "H302", "H303"}
 
 
 def find_section(node, target_heading):
     """Recursively search for a section with a specific TOCHeading."""
+    if not isinstance(node, dict):
+        return None
     if node.get("TOCHeading") == target_heading:
         return node
     for sec in node.get("Section", []):
@@ -23,6 +35,8 @@ def extract_information(section, max_items=0):
     results = []
 
     def _extract(node):
+        if not isinstance(node, dict):
+            return
         info_list = node.get("Information", [])
         for info in info_list:
             if "Value" in info and "StringWithMarkup" in info["Value"]:
@@ -40,20 +54,20 @@ def extract_information(section, max_items=0):
 
 
 def query_safety_data(cid):
-    """Fetch safety and toxicity data for a CID from PubChem PUG VIEW."""
+    """Fetch safety and toxicity data for a CID from PubChem PUG VIEW with exponential backoff."""
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON"
 
     req = urllib.request.Request(url)
     req.add_header("User-Agent", "AtomisticSkills/1.0 (SafetyData)")
 
-    max_retries = 3
+    max_retries = 5
     for attempt in range(max_retries):
         try:
             with urllib.request.urlopen(req, timeout=30) as response:
                 return json.loads(response.read())
         except urllib.error.HTTPError as e:
-            if e.code in [503, 504, 429]:
-                wait_time = (attempt + 1) * 3
+            if e.code in [429, 500, 502, 503, 504]:
+                wait_time = 2**attempt
                 print(f"Server busy (HTTP {e.code}). Retrying in {wait_time}s...")
                 time.sleep(wait_time)
                 continue
@@ -64,22 +78,119 @@ def query_safety_data(cid):
                 print(f"HTTP Error: {e.code} - {e.reason}")
                 return None
         except urllib.error.URLError as e:
-            print(f"URL Error: {e.reason}")
-            return None
+            if attempt == max_retries - 1:
+                print(f"URL Error: {e.reason}")
+                return None
+            time.sleep(2**attempt)
 
     print("Maximum retries exceeded.")
     return None
 
 
+def extract_consensus_ghs_codes(record, threshold_percent=50.0):
+    """Extract GHS hazard codes supported by >= threshold_percent of reporting sources."""
+    if not record or "Record" not in record:
+        return []
+    safety_sec = find_section(record["Record"], "GHS Classification")
+    if not safety_sec:
+        return []
+
+    supported = set()
+    for text in extract_information(safety_sec):
+        for code, comparator, percentage in PERCENT_CODE.findall(text):
+            if (
+                not comparator.startswith("<")
+                and float(percentage) >= threshold_percent
+            ):
+                supported.add(code)
+    return sorted(supported)
+
+
+def extract_lowest_rat_oral_ld50(record):
+    """Select lowest explicit rat oral LD50 record in mg/kg and its supporting evidence string."""
+    if not record or "Record" not in record:
+        return None, ""
+    tox_sec = find_section(record["Record"], "Non-Human Toxicity Values")
+    if not tox_sec:
+        tox_sec = find_section(record["Record"], "Toxicity")
+    if not tox_sec:
+        return None, ""
+
+    factors = {"ug": 1e-3, "µg": 1e-3, "μg": 1e-3, "mg": 1.0, "g": 1e3}
+    candidates = []
+
+    for text in extract_information(tox_sec):
+        lowered = text.lower()
+        if "ld50" not in lowered or "rat" not in lowered or "oral" not in lowered:
+            continue
+        for number, unit in MASS_DOSE.findall(text):
+            val_mg_kg = float(number.replace(",", "")) * factors[unit.lower()]
+            candidates.append((val_mg_kg, text))
+
+    if not candidates:
+        return None, ""
+    return min(candidates, key=lambda x: (x[0], x[1]))
+
+
+def assign_acute_oral_category(val_mg_kg):
+    """Map LD50 (mg/kg) to standard GHS Acute Oral Toxicity Category (1-5 or unclassified)."""
+    if val_mg_kg is None:
+        return "unclassified"
+    for upper, cat in [(5, "1"), (50, "2"), (300, "3"), (2000, "4"), (5000, "5")]:
+        if val_mg_kg <= upper:
+            return cat
+    return "unclassified"
+
+
+def check_oral_code_consistency(ghs_codes, category):
+    """Check if consensus GHS oral hazard codes match standard GHS Category expected codes.
+    Note: Both Category 1 and Category 2 map to H300 ('Fatal if swallowed').
+    Category 3 -> H301, Category 4 -> H302, Category 5 -> H303.
+    """
+    reported_oral = set(ghs_codes).intersection(ORAL_CODES)
+    compatible = {
+        "1": {"H300"},
+        "2": {"H300"},
+        "3": {"H301"},
+        "4": {"H302"},
+        "5": {"H303"},
+        "unclassified": set(),
+    }
+    return reported_oral == compatible.get(category, set())
+
+
+def profile_compound(cid, threshold_percent=50.0):
+    """Generate complete evidence-backed acute toxicity profile for a compound CID."""
+    record = query_safety_data(cid)
+    codes = extract_consensus_ghs_codes(record, threshold_percent)
+    ld50, evidence = extract_lowest_rat_oral_ld50(record)
+    category = assign_acute_oral_category(ld50)
+    consistent = check_oral_code_consistency(codes, category)
+
+    return {
+        "cid": cid,
+        "consensus_ghs_codes": codes,
+        "oral_rat_ld50_mg_kg": ld50,
+        "oral_rat_ld50_evidence": evidence,
+        "acute_oral_category": category,
+        "ghs_oral_code_consistent": consistent,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Query PubChem for safety, hazard, and toxicity data."
+        description="Query PubChem for safety, hazard, and toxicity data with GHS acute toxicity triage."
     )
     parser.add_argument(
         "--cid", type=int, required=True, help="PubChem CID of the target molecule"
     )
     parser.add_argument("--outdir", required=True, help="Directory to save the results")
     parser.add_argument("--output", default="safety_data.json", help="Output filename")
+    parser.add_argument(
+        "--triage",
+        action="store_true",
+        help="Perform GHS acute toxicity category triage",
+    )
 
     args = parser.parse_args()
 
@@ -88,59 +199,30 @@ def main():
 
     print(f"Fetching safety and toxicity records for CID: {args.cid}...")
 
-    data = query_safety_data(args.cid)
-
-    if not data or "Record" not in data:
-        print("Failed to retrieve or parse data.")
-        return
-
-    record = data["Record"]
-
-    result_dict = {
-        "cid": args.cid,
-        "ghs_classification": [],
-        "hazard_classes": [],
-        "toxicity": [],
-    }
-
-    # 1. Look for Safety and Hazards
-    safety_sec = find_section(record, "Safety and Hazards")
-    if safety_sec:
-        ghs = find_section(safety_sec, "GHS Classification")
-        if ghs:
-            result_dict["ghs_classification"] = extract_information(ghs, max_items=0)
-
-        classes = find_section(safety_sec, "Hazard Classes and Categories")
-        if classes:
-            result_dict["hazard_classes"] = extract_information(classes, max_items=0)
-
-    # 2. Look for Toxicity
-    tox_sec = find_section(record, "Toxicity")
-    if not tox_sec:
-        # Sometimes under Toxicological Information
-        tox_sec = find_section(record, "Toxicological Information")
-
-    if tox_sec:
-        result_dict["toxicity"] = extract_information(tox_sec, max_items=0)
-
-    print("\n--- Summary of Findings ---")
-    print(f"GHS Statements Found: {len(result_dict['ghs_classification'])}")
-    print(f"Hazard Classes Found: {len(result_dict['hazard_classes'])}")
-    print(f"Toxicity Records Found: {len(result_dict['toxicity'])}")
-
-    if not any(result_dict.values()):
-        print("Warning: No safety or toxicity information found for this CID.")
+    if args.triage:
+        result_dict = profile_compound(args.cid)
+    else:
+        data = query_safety_data(args.cid)
+        if not data or "Record" not in data:
+            print("Failed to retrieve or parse data.")
+            return
+        record = data["Record"]
+        result_dict = {
+            "cid": args.cid,
+            "ghs_classification": extract_information(
+                find_section(record, "GHS Classification") or {}
+            ),
+            "hazard_classes": extract_information(
+                find_section(record, "Hazard Classes and Categories") or {}
+            ),
+            "toxicity": extract_information(find_section(record, "Toxicity") or {}),
+        }
 
     output_path = out_dir / args.output
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result_dict, f, indent=4)
 
     print(f"\nResults saved to: {output_path}")
-
-    # Save input configs for reproducibility
-    from src.utils.config_utils import save_skill_inputs
-
-    save_skill_inputs(args, args.output_dir)
 
 
 if __name__ == "__main__":
