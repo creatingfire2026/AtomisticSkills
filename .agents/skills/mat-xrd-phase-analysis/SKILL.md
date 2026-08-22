@@ -12,7 +12,7 @@ Identify crystalline phases present in an XRD pattern by using DARA's phase sear
 ([Tutorial 2: Phase analysis with tree search](https://cedergrouphub.github.io/dara/notebooks/phase_search.html)).
 
 This skill:
-- Fetches candidate CIFs for a given chemical system (e.g. `Ge-O-Zn`) using either the COD or ICSD database.
+- Fetches candidate CIFs for a given chemical system (e.g. `Ge-O-Zn`) using either the COD or ICSD database. Any directory of CIFs works as the candidate set -- including structures pulled from Materials Project -- via `--cif_dir` or the `phases` argument of `search_phases`.
 - Runs DARA's `search_phases` to search mixtures of phases.
 - Saves plots and a human-readable report alongside the pattern.
 
@@ -24,8 +24,19 @@ DARA searches for structures in experimental databases. It supports:
 
 ## Requirements
 
-- Conda environment: `xrd-agent` (see `conda-envs/xrd-agent`).
-- Dependencies: `dara-xrd` (and its Ray/BGMN stack).
+- Dependencies: `dara-xrd` (and its Ray/BGMN stack). The pip distribution is named
+  `dara-xrd` but the **import module is `dara`**:
+
+  ```python
+  from dara import search_phases
+  ```
+
+  Check for the library itself (`python -c "import dara"`), not for an environment
+  name -- `import dara_xrd` will always fail.
+- Conda environment: `xrd-agent` (see `conda-envs/xrd-agent`) is the environment this
+  repo provisions, but it is one deployment option, not a requirement. Where
+  `dara-xrd` is already installed on the default interpreter, call `search_phases`
+  directly; the `xrd-agent` env and `scripts/phase_search.py` are conveniences.
 - BGMN: DARA will prompt to download or use a local BGMN installation.
 - For clusters where only some nodes have internet:
   - You can optionally use a **two-step workflow** (download CIFs on a node with internet, run Ray search elsewhere).

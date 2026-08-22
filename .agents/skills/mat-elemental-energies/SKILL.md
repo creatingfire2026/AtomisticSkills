@@ -29,6 +29,16 @@ As of **2026-01-30**, the library is fully expanded and contains **89 elements**
 - **Materials Project**: Structures must be queried from Materials Project to ensure they represent the true ground-state phases.
 - **Naming**: Library files must follow the `<checkpoint_name>_energies.json` format.
 - **Units**: Energies are stored as **eV/atom** (total potential energy of the relaxed structure divided by the number of atoms).
+- **Relaxation**: The stored value comes from relaxing **both cell and coordinates**
+  (`relax_cell=True`). A positions-only relaxation leaves the reference above the
+  potential's own minimum and biases every formation energy that uses it.
+- **Molecular-crystal elements are sensitive**: for O, N, F, Cl, H the MP ground state
+  is a van der Waals-bound molecular crystal whose MLIP-relaxed cell differs a lot from
+  the DFT cell, so the cell relaxation matters more here than for metals. With
+  `TensorNet-PES-MatPES-PBE-2025.2`, mp-12957 (O2) gives -5.118 eV/atom fully relaxed
+  versus -4.968 positions-only. More than one MP entry can also tie at
+  `energy_above_hull = 0` for these elements (O2: mp-12957 and mp-1524462), so pin the
+  `material_id` rather than relying on a formula lookup returning a stable order.
 ---
 
 **Author:** Bowen Deng

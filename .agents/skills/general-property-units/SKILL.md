@@ -32,7 +32,7 @@ All MLIP wrappers return predictions in ASE standard units through their ASE cal
 | **MACE** | eV | eV/Å | eV/Å³ | Native ASE units |
 | **CHGNet** | eV | eV/Å | eV/Å³ | Native ASE units |
 | **UMA (FairChem)** | eV | eV/Å | eV/Å³ | Native ASE units |
-| **M3GNet / TensorNet (MatGL)** | eV | eV/Å | eV/Å³ | Native ASE units |
+| **M3GNet / TensorNet (MatGL)** | eV | eV/Å | **GPa** by default | `PESCalculator(stress_unit="eV/A3")` for ASE units — see note |
 
 ### Training Input Labels
 
@@ -43,6 +43,13 @@ Training labels in `training_data.json` are stored in ASE standard units (eV, eV
 | **MACE** | eV | eV/Å | eV/Å³ | None — trains in eV/Å³ |
 | **FairChem (UMA)** | eV | eV/Å | eV/Å³ | None — trains in eV/Å³ |
 | **MatGL (CHGNet/M3GNet)** | eV | eV/Å | **GPa** (converted) | `eV/Å³ → GPa` in `_prepare_training_data` |
+
+> [!IMPORTANT]
+> **MatGL predicts stress in GPa, not eV/Å³.** `matgl.ext.ase.PESCalculator` takes
+> `stress_unit: Literal["eV/A3", "GPa"] = "GPa"`, so the default path returns GPa;
+> calling `Potential.forward` directly also returns GPa. Pass
+> `PESCalculator(potential=model, stress_unit="eV/A3")` when you need ASE units, or
+> divide by `160.21766208`. Mixing this up is a 160x error, not a sign error.
 
 > [!IMPORTANT]
 > **MatGL is the only trainer that requires stress conversion.** The conversion from eV/Å³ → GPa is performed automatically inside `MATGLWrapper._prepare_training_data()`. Users should always provide stress labels in eV/Å³.
