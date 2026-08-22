@@ -10,7 +10,7 @@ import logging
 from typing import List, Tuple, Optional, Dict, Any
 
 from rdkit import Chem
-from rdkit.Chem import Descriptors, Crippen, Lipinski, QED
+from rdkit.Chem import Descriptors, Crippen, Lipinski, QED, rdMolDescriptors
 
 logger = logging.getLogger(__name__)
 
@@ -251,16 +251,24 @@ def compute_descriptors(
         mw = round(Descriptors.MolWt(mol), 2)
         logp = round(Crippen.MolLogP(mol), 2)
         tpsa = round(Descriptors.TPSA(mol, includeSandP=include_sandp_tpsa), 2)
-        hbd = Lipinski.NumHDonors(mol)
-        hba = Lipinski.NumHAcceptors(mol)
+        hbd = rdMolDescriptors.CalcNumHBD(mol)
+        # Two HBA definitions, both reported explicitly. `Lipinski.NumHAcceptors` is an
+        # alias whose meaning CHANGED between rdkit 2025.09.4 and 2025.09.6 (caffeine:
+        # 6 -> 3), so it is never called here.
+        #   hba          - strict SMARTS acceptor count: excludes amide and pyrrole-type
+        #                  N whose lone pair is delocalised. Chemically correct count.
+        #   hba_lipinski - raw N+O count. The crude surrogate Lipinski 1997 actually
+        #                  specified for the Rule of Five, and what Ro5 is scored on.
+        hba = rdMolDescriptors.CalcNumHBA(mol)
+        hba_lipinski = rdMolDescriptors.CalcNumLipinskiHBA(mol)
         rotatable = Lipinski.NumRotatableBonds(mol)
         num_atoms = mol.GetNumAtoms()
         num_heavy = mol.GetNumHeavyAtoms()
         formal_charge = Chem.GetFormalCharge(mol)
         qed = round(QED.qed(mol), 2)
 
-        # Lipinski Ro5
-        lipinski_violations = sum([mw > 500, logp > 5, hbd > 5, hba > 10])
+        # Lipinski Ro5 -- scored on the N+O surrogate, per Lipinski 1997
+        lipinski_violations = sum([mw > 500, logp > 5, hbd > 5, hba_lipinski > 10])
 
         # Veber
         veber_pass = rotatable <= 10 and tpsa <= 140
@@ -274,6 +282,11 @@ def compute_descriptors(
             "tpsa": tpsa,
             "hbd": hbd,
             "hba": hba,
+            "hba_lipinski": hba_lipinski,
+            "hba_definitions": {
+                "hba": "rdMolDescriptors.CalcNumHBA -- strict SMARTS acceptor count",
+                "hba_lipinski": "rdMolDescriptors.CalcNumLipinskiHBA -- N+O count, scores Ro5",
+            },
             "rotatable_bonds": rotatable,
             "num_atoms": num_atoms,
             "num_heavy_atoms": num_heavy,

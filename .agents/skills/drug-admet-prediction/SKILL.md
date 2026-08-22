@@ -72,6 +72,15 @@ mcp_drugdisc_compute_molecular_descriptors(
 - **Veber interpretation**: Primary check uses **TPSA ≤ 140 Å² and rotatable bonds ≤ 10**, and additionally reports the alternative **(HBD + HBA ≤ 12)** criterion
 - **Standardization**: If SMILES contains multiple fragments (e.g., salts, "."), results are reported but flagged with a warning; consider desalting/neutralization upstream for library triage
 - **TPSA option**: By default, TPSA uses RDKit's default behavior (no S/P); `include_sandp_tpsa=True` includes S/P contributions
+- **Two HBA definitions, both reported**: `hba` is `rdMolDescriptors.CalcNumHBA`, the
+  strict SMARTS acceptor count that excludes amide and pyrrole-type N with delocalised
+  lone pairs (caffeine = 3: two carbonyl O plus one imidazole `=N-`). `hba_lipinski` is
+  `rdMolDescriptors.CalcNumLipinskiHBA`, the raw N+O count Lipinski 1997 specified
+  (caffeine = 6). **Ro5 is scored on `hba_lipinski`**, per the original paper.
+  Do not call the `Lipinski.NumHAcceptors` alias: its meaning changed between rdkit
+  2025.09.4 and 2025.09.6 (caffeine 6 -> 3), so results computed through it are not
+  comparable across environments. `hba` inherits that library change and will read 6
+  on rdkit <= 2025.09.4 and 3 on >= 2025.09.6; `hba_lipinski` is stable on both.
 ---
 
 **Author:** Matthew Cox
