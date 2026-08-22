@@ -57,7 +57,9 @@ python .agents/skills/mat-defect-energy/scripts/generate_defects.py \
 - `all` — generates all vacancy types
 
 ### 5. Relax Defect Supercells
-Relax **without cell relaxation** (fixed supercell volume):
+Relax **without cell relaxation** (fixed supercell volume). This applies to the defect
+supercells only -- the bulk cell in step 3 and the elemental references in step 6 are
+both relaxed with `relax_cell=True`:
 ```bash
 mcp_mace_relax_structure(
     structure_data="defect_structures/",
@@ -82,6 +84,14 @@ The script automatically:
 - Determines removed/added species and computes $\Delta n_i$
 - Uses elemental energies from [mat-elemental-energies](../mat-elemental-energies/SKILL.md) as default chemical potentials (metal-rich limit)
 - Reports formation energies in eV
+
+If you derive $\mu_i$ yourself instead of reading the library, relax the elemental
+reference **cell and coordinates** (`relax_cell=True`) with the same potential. A
+chemical potential is only meaningful at the reference phase's own minimum for that
+potential: evaluating an MP structure at its DFT geometry leaves it above the
+potential's minimum and that error passes straight into every formation energy.
+For O with `TensorNet-PES-MatPES-PBE-2025.2`, positions-only relaxation of mp-12957
+gives -4.968 eV/atom versus -5.118 fully relaxed -- a 0.15 eV/atom error.
 
 ## Examples
 
@@ -109,7 +119,7 @@ Expected: O vacancy formation energy ~6–8 eV (DFT reference: ~7.2 eV for neutr
 
 ## Constraints
 - **Neutral defects only**: This skill does NOT handle charged defects. For charged defects with finite-size corrections, use [mat-defect-energy-dft](../mat-defect-energy-dft/SKILL.md).
-- **Fixed cell**: Do NOT relax the unit cell during defect relaxation — the supercell must remain fixed to be commensurate with the bulk reference.
+- **Fixed cell**: Do NOT relax the unit cell during defect relaxation — the supercell must remain fixed to be commensurate with the bulk reference. This constraint is scoped to the defect supercell: the bulk cell and the elemental chemical-potential references are both fully relaxed (cell and coordinates).
 - **Supercell size**: Use at least 3×3×3 for cubic systems to minimize periodic image interactions. Formation energies converge with supercell size.
 - **Chemical potential**: Default uses metal-rich limit (elemental energies). For environment-specific stability, manually provide chemical potentials.
 - **Environments**: Defect generation and energy calculation scripts require `base-agent`.
