@@ -41,7 +41,34 @@ conda run -n base-agent python .agents/skills/ml-mlip-benchmark/scripts/plot_ben
 
 This generates `energy_parity.png`, `forces_parity.png`, and (if stress was present) `stress_parity.png`.
 
-### 3. Interpret Results
+### 3. Reconcile units before comparing anything
+
+A benchmark subtracts two numbers that came from different software, so a unit or
+sign mismatch shows up as a large "model error" that is not a model error at all.
+Energy (eV) and forces (eV/Å) agree across every backend here; **stress does not.**
+Settle it before computing a single metric -- see
+[general-property-units](../general-property-units/SKILL.md) for the full tables.
+
+The three traps, in order of how often they bite:
+
+1. **MatGL returns GPa, not eV/Å³.** `matgl.ext.ase.PESCalculator` defaults to
+   `stress_unit="GPa"`, and `Potential.forward` returns GPa as well, so MatGL is not
+   a drop-in ASE calculator. Pass `PESCalculator(potential=model, stress_unit="eV/A3")`.
+   Getting this wrong is a factor of `160.21766208`.
+2. **Raw model output != ASE calculator output.** `CHGNetCalculator` converts GPa to
+   eV/Å³ on the way out (`stress_weight`, default `1/160.21766208`); MACE and
+   FAIRChem convert nothing because their models already emit eV/Å³. Know which
+   layer you are reading.
+3. **DFT labels usually carry the opposite sign.** VASP reports stress
+   compressive-positive in kB; ASE and every MLIP here are tensile-positive in
+   eV/Å³. Converting VASP labels to ASE convention is
+   `eV/A3 = -kB / 1602.1766208`.
+
+Sanity check that costs nothing: take a structure you have compressed, and confirm
+the diagonal stress is **negative** in ASE convention. If it is positive, you have a
+sign convention crossed somewhere.
+
+### 4. Interpret Results
 When presenting the plotted benchmarks to the user, consult the following rough heuristics for MLIP performance:
 - **Energy MAE**: Excellent (< 5 meV/atom), Good (5-20 meV/atom), Poor (> 50 meV/atom)
 - **Forces MAE**: Excellent (< 20 meV/Å), Good (20-50 meV/Å), Poor (> 100 meV/Å)

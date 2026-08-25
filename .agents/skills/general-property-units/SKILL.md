@@ -25,14 +25,43 @@ All internal representations follow the **ASE (Atomic Simulation Environment)** 
 
 ### Prediction (Inference)
 
-All MLIP wrappers return predictions in ASE standard units through their ASE calculator interface:
+**The raw torch model and the ASE calculator do not return the same stress units.**
+Most calculators apply a unit conversion on the way out; two do not. Read the stress
+column for the layer you are actually calling.
 
-| Model | Energy | Forces | Stress | Notes |
-|:------|:-------|:-------|:-------|:------|
-| **MACE** | eV | eV/Å | eV/Å³ | Native ASE units |
-| **CHGNet** | eV | eV/Å | eV/Å³ | Native ASE units |
-| **UMA (FairChem)** | eV | eV/Å | eV/Å³ | Native ASE units |
-| **M3GNet / TensorNet (MatGL)** | eV | eV/Å | **GPa** by default | `PESCalculator(stress_unit="eV/A3")` for ASE units — see note |
+Energy is eV and forces are eV/Å everywhere, at both layers. Only stress varies:
+
+| Model (calculator class) | raw model output | ASE calculator output | conversion in the ASE layer |
+|:-------------------------|:-----------------|:----------------------|:----------------------------|
+| **MACE** (`MACECalculator`) | eV/Å³ | eV/Å³ | none |
+| **UMA / FairChem** (`FAIRChemCalculator`) | eV/Å³ | eV/Å³ | none |
+| **CHGNet standalone** (`CHGNetCalculator`) | **GPa** | eV/Å³ | `× stress_weight`, default `1/160.21766208` |
+| **CHGNet / M3GNet / TensorNet via MatGL** (`PESCalculator`) | **GPa** | **GPa** unless asked otherwise | none by default — pass `stress_unit="eV/A3"` |
+
+Measured on one compressed Si cell (xx component), 2026-08-25:
+
+| path | raw | calculator default | calculator eV/Å³ |
+|:-----|----:|-------------------:|-----------------:|
+| MACE-MP small | -0.0762876 | -0.0762876 | — |
+| UMA `uma-s-1p1` (omat) | -0.0821809 | -0.0821810 | — |
+| CHGNet standalone 0.4.2 | -13.906347 | -0.0867966 | — |
+| MatGL `TensorNet-PES-MatPES-PBE-2025.2` | -10.780773 | -10.780773 | -0.067288 |
+| MatGL `CHGNet-PES-MatPES-PBE-2025.2.10` | — | -15.229350 | -0.095054 |
+| MatGL `M3GNet-PES-MatPES-2025.2` | — | -20.293510 | -0.126662 |
+
+Every ratio above is exactly `160.21766208`, i.e. GPa per eV/Å³.
+
+> [!IMPORTANT]
+> `matgl.ext.ase.PESCalculator` takes `stress_unit: Literal["eV/A3", "GPa"] = "GPa"`,
+> so **using it as a drop-in ASE calculator gives GPa, not ASE units** — it prints a
+> runtime warning saying so. Calling `Potential.forward` directly also returns GPa.
+> Pass `PESCalculator(potential=model, stress_unit="eV/A3")`, or divide by
+> `160.21766208`. Mixing this up is a 160x error, not a sign error.
+
+> [!NOTE]
+> All of the above are in the **ASE sign convention: positive = tensile,
+> compression negative**. A compressed cell therefore gives negative diagonal
+> stress at both layers. DFT codes may differ — see [VASP](#vasp) below.
 
 ### Training Input Labels
 
@@ -43,13 +72,6 @@ Training labels in `training_data.json` are stored in ASE standard units (eV, eV
 | **MACE** | eV | eV/Å | eV/Å³ | None — trains in eV/Å³ |
 | **FairChem (UMA)** | eV | eV/Å | eV/Å³ | None — trains in eV/Å³ |
 | **MatGL (CHGNet/M3GNet)** | eV | eV/Å | **GPa** (converted) | `eV/Å³ → GPa` in `_prepare_training_data` |
-
-> [!IMPORTANT]
-> **MatGL predicts stress in GPa, not eV/Å³.** `matgl.ext.ase.PESCalculator` takes
-> `stress_unit: Literal["eV/A3", "GPa"] = "GPa"`, so the default path returns GPa;
-> calling `Potential.forward` directly also returns GPa. Pass
-> `PESCalculator(potential=model, stress_unit="eV/A3")` when you need ASE units, or
-> divide by `160.21766208`. Mixing this up is a 160x error, not a sign error.
 
 > [!IMPORTANT]
 > **MatGL is the only trainer that requires stress conversion.** The conversion from eV/Å³ → GPa is performed automatically inside `MATGLWrapper._prepare_training_data()`. Users should always provide stress labels in eV/Å³.
